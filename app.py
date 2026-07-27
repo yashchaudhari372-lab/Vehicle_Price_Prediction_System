@@ -14,10 +14,13 @@ if os.path.exists(MODEL_PATH):
     with open(MODEL_PATH, "rb") as f:
         model = pickle.load(f)
 
-# Features expected by your RFA_model.pkl based on the array metadata:
-# ['Make', 'Model', 'Year', 'Fuel_Type', 'Transmission', 'Engine_Size', 
-#  'Mileage', 'Horsepower', 'Torque', 'Owners', 'Accident_History', 
-#  'Service_History', 'Color', 'Body_Type', 'Drivetrain', 'Fuel_Efficiency', 'Location']
+# Base Currency Rates (Base: USD = 1.0)
+CURRENCY_RATES = {
+    "USD": {"rate": 1.0, "symbol": "$"},
+    "EUR": {"rate": 0.92, "symbol": "€"},
+    "GBP": {"rate": 0.79, "symbol": "£"},
+    "INR": {"rate": 83.15, "symbol": "₹"}
+}
 
 CATEGORICAL_OPTIONS = {
     'Make': ['Toyota', 'Honda', 'Ford', 'BMW', 'Mercedes-Benz', 'Audi', 'Hyundai'],
@@ -83,11 +86,7 @@ HTML_TEMPLATE = """
             --accent-primary: #6366f1;
             --accent-secondary: #a855f7;
             --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-            --chart-color1: #6366f1;
-            --chart-color2: #a855f7;
-            --chart-color3: #06b6d4;
-            --chart-color4: #10b981;
-            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
         }
 
         :root[data-theme="emerald"] {
@@ -100,10 +99,6 @@ HTML_TEMPLATE = """
             --accent-primary: #10b981;
             --accent-secondary: #06b6d4;
             --accent-gradient: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-            --chart-color1: #10b981;
-            --chart-color2: #06b6d4;
-            --chart-color3: #84cc16;
-            --chart-color4: #eab308;
             --shadow: 0 20px 25px -5px rgba(0, 30, 20, 0.6);
         }
 
@@ -117,10 +112,6 @@ HTML_TEMPLATE = """
             --accent-primary: #ec4899;
             --accent-secondary: #8b5cf6;
             --accent-gradient: linear-gradient(135deg, #ec4899 0%, #06b6d4 100%);
-            --chart-color1: #ec4899;
-            --chart-color2: #8b5cf6;
-            --chart-color3: #f43f5e;
-            --chart-color4: #06b6d4;
             --shadow: 0 20px 25px -5px rgba(236, 72, 153, 0.25);
         }
 
@@ -134,10 +125,6 @@ HTML_TEMPLATE = """
             --accent-primary: #ef4444;
             --accent-secondary: #f97316;
             --accent-gradient: linear-gradient(135deg, #ef4444 0%, #eab308 100%);
-            --chart-color1: #ef4444;
-            --chart-color2: #f97316;
-            --chart-color3: #eab308;
-            --chart-color4: #ec4899;
             --shadow: 0 20px 25px -5px rgba(239, 68, 68, 0.3);
         }
 
@@ -145,7 +132,7 @@ HTML_TEMPLATE = """
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            transition: background-color 0.4s ease, border-color 0.4s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: background-color 0.4s ease, border-color 0.4s ease;
         }
 
         body {
@@ -157,7 +144,7 @@ HTML_TEMPLATE = """
             overflow-x: hidden;
         }
 
-        /* Header & Theme Bar */
+        /* Header & Controls */
         .header {
             display: flex;
             justify-content: space-between;
@@ -165,7 +152,6 @@ HTML_TEMPLATE = """
             margin-bottom: 2rem;
             padding-bottom: 1.5rem;
             border-bottom: 1px solid var(--border-color);
-            animation: fadeInDown 0.8s ease-out;
         }
 
         .brand {
@@ -187,34 +173,49 @@ HTML_TEMPLATE = """
             box-shadow: var(--shadow);
         }
 
-        .brand h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
-        .brand p {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .theme-selector {
+        .selector-box {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             background: var(--bg-secondary);
-            padding: 0.4rem 0.6rem;
+            padding: 0.4rem 0.8rem;
             border-radius: 30px;
             border: 1px solid var(--border-color);
         }
 
+        .selector-box label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .currency-dropdown {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-weight: 700;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .currency-dropdown option {
+            background: var(--bg-primary);
+            color: var(--text-main);
+        }
+
         .theme-btn {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             border: 2px solid transparent;
             cursor: pointer;
-            position: relative;
         }
 
         .theme-btn.active {
@@ -236,18 +237,16 @@ HTML_TEMPLATE = """
 
         @media (max-width: 1024px) {
             .dashboard-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 1rem; align-items: flex-start; }
         }
 
-        /* Glassmorphism Cards */
         .card {
             background: var(--card-bg);
             backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--border-color);
             border-radius: 24px;
             padding: 2rem;
             box-shadow: var(--shadow);
-            animation: fadeInUp 0.8s ease-out;
         }
 
         .card-title {
@@ -259,11 +258,9 @@ HTML_TEMPLATE = """
             gap: 0.6rem;
         }
 
-        .card-title i {
-            color: var(--accent-primary);
-        }
+        .card-title i { color: var(--accent-primary); }
 
-        /* Input Controls Layout */
+        /* Input Form */
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -281,7 +278,6 @@ HTML_TEMPLATE = """
             font-weight: 600;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
 
         .form-control {
@@ -323,16 +319,9 @@ HTML_TEMPLATE = """
             box-shadow: var(--shadow);
         }
 
-        .btn-submit:hover {
-            opacity: 0.95;
-            transform: translateY(-2px);
-        }
+        .btn-submit:hover { opacity: 0.95; }
 
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        /* Result Panel & Visual Analytics */
+        /* Results Panel */
         .results-panel {
             display: flex;
             flex-direction: column;
@@ -344,10 +333,7 @@ HTML_TEMPLATE = """
             border-radius: 20px;
             padding: 1.8rem;
             text-align: center;
-            position: relative;
-            overflow: hidden;
             box-shadow: var(--shadow);
-            animation: pulseGlow 4s infinite alternate;
         }
 
         .prediction-hero p {
@@ -364,36 +350,10 @@ HTML_TEMPLATE = """
             margin: 0.4rem 0;
         }
 
-        .charts-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
         .chart-box {
             position: relative;
             height: 220px;
             width: 100%;
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes pulseGlow {
-            from { box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
-            to { box-shadow: 0 0 30px rgba(168, 85, 247, 0.6); }
-        }
-
-        .pulse {
-            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -410,12 +370,26 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <div class="theme-selector">
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight:700; margin-right: 0.4rem;">THEME</span>
-            <button class="theme-btn active" data-set="dark" title="Dark Slate"></button>
-            <button class="theme-btn" data-set="emerald" title="Emerald Glow"></button>
-            <button class="theme-btn" data-set="cyber" title="Cyber Neon"></button>
-            <button class="theme-btn" data-set="crimson" title="Crimson Red"></button>
+        <div class="controls-group">
+            <!-- Currency Selection Widget -->
+            <div class="selector-box">
+                <label for="currencySelect"><i class="fa-solid fa-coins"></i> CURRENCY:</label>
+                <select id="currencySelect" class="currency-dropdown">
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="INR">INR (₹)</option>
+                </select>
+            </div>
+
+            <!-- Theme Switcher Widget -->
+            <div class="selector-box">
+                <label>THEME:</label>
+                <button class="theme-btn active" data-set="dark" title="Dark Slate"></button>
+                <button class="theme-btn" data-set="emerald" title="Emerald Glow"></button>
+                <button class="theme-btn" data-set="cyber" title="Cyber Neon"></button>
+                <button class="theme-btn" data-set="crimson" title="Crimson Red"></button>
+            </div>
         </div>
     </header>
 
@@ -528,6 +502,26 @@ HTML_TEMPLATE = """
     </main>
 
     <script>
+        // Currency Conversion Engine Setup
+        const rates = {{ currencies | tojson }};
+        let currentBaseUSDPrice = 24850.00; // Base model evaluation state
+
+        function renderCurrencyDisplay() {
+            const currencyKey = document.getElementById('currencySelect').value;
+            const currencyData = rates[currencyKey] || rates['USD'];
+            const convertedPrice = currentBaseUSDPrice * currencyData.rate;
+
+            const priceFormatted = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currencyKey,
+                maximumFractionDigits: 2
+            }).format(convertedPrice);
+
+            document.getElementById('priceDisplay').innerText = priceFormatted;
+        }
+
+        document.getElementById('currencySelect').addEventListener('change', renderCurrencyDisplay);
+
         // Theme Switching System
         const themeBtns = document.querySelectorAll('.theme-btn');
         themeBtns.forEach(btn => {
@@ -576,7 +570,7 @@ HTML_TEMPLATE = """
             densityChart = new Chart(ctx2, {
                 type: 'line',
                 data: {
-                    labels: ['-$10k', '-$5k', 'Estimated Value', '+$5k', '+$10k'],
+                    labels: ['-10%', '-5%', 'Estimated Value', '+5%', '+10%'],
                     datasets: [{
                         label: 'Probability Curve',
                         data: [10, 35, 90, 40, 15],
@@ -615,6 +609,7 @@ HTML_TEMPLATE = """
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
+            data['Currency'] = document.getElementById('currencySelect').value;
 
             try {
                 const response = await fetch('/predict', {
@@ -624,16 +619,19 @@ HTML_TEMPLATE = """
                 });
                 const result = await response.json();
                 
-                if (result.price) {
-                    const priceFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(result.price);
-                    document.getElementById('priceDisplay').innerText = priceFormatted;
+                if (result.price_usd !== undefined) {
+                    currentBaseUSDPrice = result.price_usd;
+                    renderCurrencyDisplay();
                 }
             } catch (err) {
                 console.error("Prediction Request Failed:", err);
             }
         });
 
-        window.addEventListener('DOMContentLoaded', initCharts);
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            renderCurrencyDisplay();
+        });
     </script>
 </body>
 </html>
@@ -641,26 +639,41 @@ HTML_TEMPLATE = """
 
 @app.route("/")
 def home():
-    return render_template_string(HTML_TEMPLATE, categories=CATEGORICAL_OPTIONS)
+    return render_template_string(
+        HTML_TEMPLATE, 
+        categories=CATEGORICAL_OPTIONS, 
+        currencies=CURRENCY_RATES
+    )
 
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         data = request.get_json()
+        target_currency = data.get("Currency", "USD")
         
         if model is not None:
             features = encode_inputs(data)
             prediction = model.predict(features)[0]
-            price = round(float(prediction), 2)
+            base_usd_price = round(float(prediction), 2)
         else:
-            # Fallback estimation logic if pickle file is unpickled or missing
+            # Fallback estimation logic (Base in USD)
             base_price = 20000
             hp = float(data.get('Horsepower', 150))
             year = float(data.get('Year', 2020))
             mileage = float(data.get('Mileage', 50000))
-            price = round(base_price + (hp * 50) + ((year - 2010) * 800) - (mileage * 0.08), 2)
+            base_usd_price = round(base_price + (hp * 50) + ((year - 2010) * 800) - (mileage * 0.08), 2)
 
-        return jsonify({"success": True, "price": price})
+        # Rate recalculation logic
+        curr_info = CURRENCY_RATES.get(target_currency, CURRENCY_RATES["USD"])
+        converted_price = round(base_usd_price * curr_info["rate"], 2)
+
+        return jsonify({
+            "success": True, 
+            "price_usd": base_usd_price,
+            "converted_price": converted_price,
+            "currency_symbol": curr_info["symbol"],
+            "currency": target_currency
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
