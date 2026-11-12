@@ -21,7 +21,7 @@
 
 The **Vehicle Price Prediction System** is an end-to-end machine learning project designed to estimate vehicle prices based on information supplied by a user. It demonstrates how predictive modeling can support data-informed pricing decisions in the automotive market.
 
-The application loads a pre-trained **Random Forest Regressor** and presents predictions through a Python-based web interface.
+The application loads a pre-trained **Random Forest Regressor** and presents predictions through a Python-based web interface..
 
 ## ✨ Key Features
 
